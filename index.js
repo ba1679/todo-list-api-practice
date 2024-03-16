@@ -43,15 +43,17 @@ const requestListener = (req, res) => {
                 title,
                 id: uuidv4(),
               });
+              res.writeHead(200, headers);
+              res.write(
+                JSON.stringify({
+                  status: 'success',
+                  data: todos,
+                })
+              );
+              res.end();
+            } else {
+              errorHandler(res);
             }
-            res.writeHead(200, headers);
-            res.write(
-              JSON.stringify({
-                status: 'success',
-                data: todos,
-              })
-            );
-            res.end();
           } catch (error) {
             errorHandler(res);
           }
