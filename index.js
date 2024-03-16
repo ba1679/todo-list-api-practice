@@ -1,20 +1,23 @@
 const http = require('http');
 const errorHandler = require('./errorHandler');
+const HEADERS = require('./headers');
 const { v4: uuidv4 } = require('uuid');
 
 const API_PATH = '/todos';
 
 const todos = [];
 
-const requestListener = (req, res) => {
-  const headers = {
-    'Access-Control-Allow-Headers':
-      'Content-Type, Authorization, Content-Length, X-Requested-With',
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'PATCH, POST, GET,OPTIONS,DELETE',
-    'Content-Type': 'application/json',
-  };
+function sendSuccessResponse(res, data) {
+  const sucessResponse = JSON.stringify({
+    status: 'success',
+    data: todos,
+  });
+  res.writeHead(200, HEADERS);
+  res.write(sucessResponse);
+  res.end();
+}
 
+const requestListener = (req, res) => {
   let body = '';
 
   req.on('data', (chunk) => {
@@ -22,16 +25,9 @@ const requestListener = (req, res) => {
   });
 
   if (req.url === API_PATH) {
-    let sucessResponse;
     switch (req.method) {
       case 'GET':
-        res.writeHead(200, headers);
-        sucessResponse = JSON.stringify({
-          status: 'success',
-          data: todos,
-        });
-        res.write(sucessResponse);
-        res.end();
+        sendSuccessResponse(res);
         break;
       case 'POST':
         req.on('end', () => {
@@ -43,14 +39,7 @@ const requestListener = (req, res) => {
                 title,
                 id: uuidv4(),
               });
-              res.writeHead(200, headers);
-              res.write(
-                JSON.stringify({
-                  status: 'success',
-                  data: todos,
-                })
-              );
-              res.end();
+              sendSuccessResponse(res);
             } else {
               errorHandler(res);
             }
@@ -60,18 +49,12 @@ const requestListener = (req, res) => {
         });
         break;
       case 'DELETE':
-        res.writeHead(200, headers);
         todos.length = 0;
-        sucessResponse = JSON.stringify({
-          status: 'success',
-          data: todos,
-        });
-        res.write(sucessResponse);
-        res.end();
+        sendSuccessResponse(res);
         break;
       // due to CORS, browser will send OPTIONS request before some other requests(preflight)
       case 'OPTIONS':
-        res.writeHead(200, headers);
+        res.writeHead(200, HEADERS);
         res.end();
         break;
       default:
@@ -80,18 +63,12 @@ const requestListener = (req, res) => {
     }
   } else if (req.url.startsWith(`${API_PATH}/`)) {
     const [_, id] = /\/todos\/([a-z0-9-]+)/.exec(req.url);
-    res.writeHead(200, headers);
     const targetIndex = todos.findIndex((todo) => todo.id === id);
     if (targetIndex !== -1) {
       switch (req.method) {
         case 'DELETE':
           todos.splice(targetIndex, 1);
-          const sucessResponse = JSON.stringify({
-            status: 'success',
-            data: todos,
-          });
-          res.write(sucessResponse);
-          res.end();
+          sendSuccessResponse(res);
           break;
         case 'PATCH':
           req.on('end', () => {
@@ -100,12 +77,7 @@ const requestListener = (req, res) => {
               const title = data.title;
               if (title) {
                 todos[targetIndex].title = title;
-                const sucessResponse = JSON.stringify({
-                  status: 'success',
-                  data: todos,
-                });
-                res.write(sucessResponse);
-                res.end();
+                sendSuccessResponse(res);
               } else {
                 errorHandler(res);
               }
