@@ -1,5 +1,5 @@
 const http = require('http');
-const errorHandler = require('./errorHandler');
+const { errorHandler, ErrorMsg } = require('./errorHandler');
 const HEADERS = require('./headers');
 const { v4: uuidv4 } = require('uuid');
 
@@ -7,7 +7,7 @@ const API_PATH = '/todos';
 
 const todos = [];
 
-function sendSuccessResponse(res, data) {
+function sendSuccessResponse(res) {
   const sucessResponse = JSON.stringify({
     status: 'success',
     data: todos,
@@ -41,10 +41,10 @@ const requestListener = (req, res) => {
               });
               sendSuccessResponse(res);
             } else {
-              errorHandler(res);
+              errorHandler(res, ErrorMsg.titleIsRequired);
             }
           } catch (error) {
-            errorHandler(res);
+            errorHandler(res, ErrorMsg.invalidJson);
           }
         });
         break;
@@ -58,7 +58,7 @@ const requestListener = (req, res) => {
         res.end();
         break;
       default:
-        errorHandler(res);
+        errorHandler(res, ErrorMsg.methodNotAllowed);
         break;
     }
   } else if (req.url.startsWith(`${API_PATH}/`)) {
@@ -79,10 +79,10 @@ const requestListener = (req, res) => {
                 todos[targetIndex].title = title;
                 sendSuccessResponse(res);
               } else {
-                errorHandler(res);
+                errorHandler(res, ErrorMsg.titleIsRequired);
               }
             } catch (error) {
-              errorHandler(res);
+              errorHandler(res, ErrorMsg.invalidJson);
             }
           });
           break;

@@ -1,13 +1,19 @@
 const HEADERS = require('./headers');
 
-function ErrorHandler (res) {
+function errorHandler(res, msg) {
   res.writeHead(404, HEADERS);
   const errorResponse = JSON.stringify({
     status: 'error',
-    message: 'Not found',
+    message: msg || 'Not found',
   });
   res.write(errorResponse);
   res.end();
 }
 
-module.exports = ErrorHandler;
+const ErrorMsg = {
+  methodNotAllowed: 'Method not allowed',
+  titleIsRequired: 'Title is required',
+  invalidJson: 'Invalid JSON',
+};
+
+module.exports = { errorHandler, ErrorMsg };
