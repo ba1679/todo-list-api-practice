@@ -1,23 +1,40 @@
 const http = require('http');
-const { errorHandler, ErrorMsg } = require('./errorHandler');
+const mongoose = require('mongoose');
+const dotenv = require('dotenv');
+const Todo = require('./models/todos');
 const HEADERS = require('./headers');
-const { v4: uuidv4 } = require('uuid');
+const { errorHandler, ErrorMsg } = require('./errorHandler');
+
+dotenv.config({
+  path: './config.env',
+});
+
+const DB = process.env.DATABASE_URL.replace(
+  '<password>',
+  process.env.DATABASE_PASSWORD
+);
+mongoose
+  .connect(DB)
+  .then(() => {
+    console.log('connected to DB successfully');
+  })
+  .catch((err) => {
+    console.log('failed to connect DB', err);
+  });
 
 const API_PATH = '/todos';
 
-const todos = [];
-
-function sendSuccessResponse(res) {
+function sendSuccessResponse(res, data) {
   const sucessResponse = JSON.stringify({
     status: 'success',
-    data: todos,
+    data,
   });
   res.writeHead(200, HEADERS);
   res.write(sucessResponse);
   res.end();
 }
 
-const requestListener = (req, res) => {
+const requestListener = async (req, res) => {
   let body = '';
 
   req.on('data', (chunk) => {
@@ -27,30 +44,32 @@ const requestListener = (req, res) => {
   if (req.url === API_PATH) {
     switch (req.method) {
       case 'GET':
-        sendSuccessResponse(res);
+        const todos = await Todo.find();
+        sendSuccessResponse(res, todos);
         break;
       case 'POST':
-        req.on('end', () => {
+        req.on('end', async () => {
           try {
             const data = JSON.parse(body);
             const title = data.title;
-            if (title) {
-              todos.push({
-                title,
-                id: uuidv4(),
-              });
-              sendSuccessResponse(res);
-            } else {
-              errorHandler(res, ErrorMsg.titleIsRequired);
+            if (!title) {
+              return errorHandler(res, ErrorMsg.titleIsRequired);
             }
+            const newTodo = await Todo.create({
+              title,
+              description: data.description,
+              completed: data.completed || false,
+              createdAt: Date.now(),
+            });
+            sendSuccessResponse(res, newTodo);
           } catch (error) {
             errorHandler(res, ErrorMsg.invalidJson);
           }
         });
         break;
       case 'DELETE':
-        todos.length = 0;
-        sendSuccessResponse(res);
+        await Todo.deleteMany();
+        sendSuccessResponse(res, []);
         break;
       // due to CORS, browser will send OPTIONS request before some other requests(preflight)
       case 'OPTIONS':
@@ -60,37 +79,6 @@ const requestListener = (req, res) => {
       default:
         errorHandler(res, ErrorMsg.methodNotAllowed);
         break;
-    }
-  } else if (req.url.startsWith(`${API_PATH}/`)) {
-    const [_, id] = /\/todos\/([a-z0-9-]+)/.exec(req.url);
-    const targetIndex = todos.findIndex((todo) => todo.id === id);
-    if (targetIndex !== -1) {
-      switch (req.method) {
-        case 'DELETE':
-          todos.splice(targetIndex, 1);
-          sendSuccessResponse(res);
-          break;
-        case 'PATCH':
-          req.on('end', () => {
-            try {
-              const data = JSON.parse(body);
-              const title = data.title;
-              if (title) {
-                todos[targetIndex].title = title;
-                sendSuccessResponse(res);
-              } else {
-                errorHandler(res, ErrorMsg.titleIsRequired);
-              }
-            } catch (error) {
-              errorHandler(res, ErrorMsg.invalidJson);
-            }
-          });
-          break;
-        default:
-          break;
-      }
-    } else {
-      errorHandler(res);
     }
   }
 };
